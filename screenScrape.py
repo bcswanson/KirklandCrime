@@ -1,17 +1,29 @@
-import urllib2
 from BeautifulSoup import BeautifulSoup
+from datetime import datetime
 from googlemaps import GoogleMaps
 import re
-from datetime import datetime
+import urllib2
+
+now = datetime.now()
+#API key from blakeswanson.com
+GMAPS = GoogleMaps('ABQIAAAAUWHRJGluxwxTNxzAAB2m_RTi_Pt_gz5MV-nrMRwKTuzjlX3-yxTRL6qrr4zoeewtmNmpi7E2ex1llQ')
+
+def main():
+  #oct 13th
+  getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/131651253.html')
+  #oct 6th
+  #getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/130392973.html')
+  #sept 29th
+  #getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/130748293.html')
+  #sept 22nd
+  #getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/130748293.html')
+  #sept 15th
+  #getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/129903718.html')
+  #sept 7th
+  #getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/129418608.html')
 
 
 def getBlotterData(url):
-  #declare variables
-  crime, date, time, address, description = ('',)*5
-  now = datetime.now()
-  #API key from blakeswanson.com
-  gmaps = GoogleMaps('ABQIAAAAUWHRJGluxwxTNxzAAB2m_RTi_Pt_gz5MV-nrMRwKTuzjlX3-yxTRL6qrr4zoeewtmNmpi7E2ex1llQ')
-  #open URL
   page = urllib2.urlopen(url)
   soup = BeautifulSoup(page)  
   #gets body of blotter info
@@ -23,85 +35,69 @@ def getBlotterData(url):
   for item in pList[:]:
     #clean up html markup
     item = item.replace('</p>,', '')
-    item = re.sub('(<[^>]+>)', '', item)
+    item = re.sub(r'(<[^>]+>)', '', item)
+    #finds date
+    dayMatch = re.search(r'^[A-Z]\w{1,3}\.\s\d+', item)
+    if dayMatch:	  
+      date = grabDate(dayMatch.group())
     
-    #finds date 
-    dayMatch = re.search('^[A-Z]\w+\.\s\d+', item)
-    if dayMatch:
-      date = dayMatch.group()
-      #if len(re.search('^\D+?\.'), date)
-      #makes sure the month abreviation is only 3 characters long
-      monthCheck = re.search('^\D+?\.', date)
-      if (len(monthCheck.group()) >= 5):
-        date = date.replace(monthCheck.group(), monthCheck.group()[0:3] + '.')
-
     #finds crime, time and address (all in same paragraph)
     crimeMatch = re.search('^.+?:', item)
     if crimeMatch:
       crime = crimeMatch.group()
       item = item.replace(crime + ' ', '')    
       crime = crime.replace(':', '')
+      time, item = getTime(item)
+      address, description = getAddress(item)
+      lat, lng = GMAPS.address_to_latlng(address)
 
-      #finds time
-      if (item[0:4] == 'Noon'):
-        item = item.replace(item[0:4], '12:00 p.m.')
-      
-      timeMatch = re.search('^\d+?:\d{2}.[ap]\.[m]\.|\d.[ap]\.[m]\.|\d{2}.[ap]\.[m]\.', item)
-      if timeMatch:
-        time = timeMatch.group()
-        item = item.replace(time + ', ', '')
-        time = time.replace('.', '')
-        #checks for time like 1 pm and fixes it
-        timeCheck = re.search('^\d\ |^\d\d\ ', time)
-        if timeCheck:
-          timeCheck = timeCheck.group()
-          timeCheck = timeCheck.replace(' ', '')
-          time = time.replace(timeCheck, timeCheck + ':00')
-          
-        #if noonCheck:
-         
-        
-      #finds address
-      if (item[0:8] == 'downtown'):
-        item = item.replace('downtown', 'Main Street');
-      addressMatch = re.search('^.*(N\.E\.|NE|N\.W\.|NW|S\.W\.|SW|S\.E\.|SE|N\.|S\.|E\.|W\.|Street\.|St\.|Court\.|Ave\.|Avenue\.|Way\.|Lane\.|Place\.|Dr\.|Drive\.|Center\.|South\.|East\.|West\.|South\.)', item[0:50])
-      if addressMatch:
-        address = addressMatch.group()
-        description = item.replace(address + ' ', '')
-        address = address + ', Kirkland WA'
-        lat, lng = gmaps.address_to_latlng(address)
-      else:
-        address = 'No address'
 
-      
-      
       if crime != 'So keep your comments':
-        
-        dict = {}
-        dict['datetime'] = datetime.strptime(date + ', ' + str(now.year) + ' ' + time, '%b. %d, %Y %I:%M %p')
-        dict['crime'] = crime
-        dict['address'] = address
-        dict['lat'] = lat
-        dict['lng'] = lng
-        dict['description'] = description
-        print dict['datetime']
-        print dict['crime']
-        print dict['address']
-        print dict['lat']
-        print dict['lng']
-        print dict['description']
+        record = {'datetime': datetime.strptime(date + ', ' + str(now.year) + ' ' + time, '%b. %d, %Y %I:%M %p'), 'crime': crime, 'address': address, 'lat': lat, 'lng': lng, 'description': description}
+        print record['datetime']
+        print record['crime']
+        print record['address']
+        print record['lat']
+        print record['lng']
+        print record['description']
         
         #c.execute("insert into kirklandCrimes ")   
-    
-#sept 29th
-getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/130748293.html')
 
-#sept 22nd
-#getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/130748293.html')
+def grabDate(date):
+	monthCheck = re.search(r'^\D+?\.', date)
+	#makes sure the month abreviation is only 3 characters long
+	if (len(monthCheck.group()) >= 5):
+		date = date.replace(monthCheck.group(), monthCheck.group()[0:3] + '.')
+	return date
 
-#sept 15th
-#getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/129903718.html')
+def getTime(item):
+   if (item[0:4] == 'Noon'):
+     item = item.replace(item[0:4], '12:00 p.m.')    
+   timeMatch = re.search(r'^\d+?:\d{2}.[ap]\.m\.|\d.[ap]\.[m]\.|\d{2}.[ap]\.[m]\.', item)
+   if timeMatch:
+      time = timeMatch.group()
+      item = item.replace(time + ', ', '')
+      time = time.replace('.', '')
+      #checks for time similar to 1 pm and fixes it to 1:00 pm
+      timeCheck = re.search('^\d\ |^\d\d\ ', time)
+      if timeCheck:
+        timeCheck = timeCheck.group()
+        timeCheck = timeCheck.replace(' ', '')
+        time = time.replace(timeCheck, timeCheck + ':00')
+      return time, item
 
-#sept 7th
-#getBlotterData('http://www.pnwlocalnews.com/east_king/kir/news/129418608.html')
+def getAddress(item):
+  if item:
+    if (item[0:8] == 'downtown'):
+      item = item.replace('downtown', 'Main Street');
+    addressMatch = re.search('^.*(N\.E\.|NE|N\.W\.|NW|S\.W\.|SW|S\.E\.|SE|N\.|S\.|E\.|W\.|Street\.|St\.|Court\.|Ave\.|Avenue\.|Way\.|Lane\.|Place\.|Dr\.|Drive\.|Center\.|South\.|East\.|West\.|South\.|Plaza\.)', item[0:50])
+    if addressMatch:
+      address = addressMatch.group()
+      description = item.replace(address + ' ', '')
+      address = address + ', Kirkland WA'
+    else:
+      address = 'No address'
+    return address, description
 
+if __name__ == '__main__':
+  main()
